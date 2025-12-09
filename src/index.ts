@@ -86,7 +86,7 @@ async function activate(
   translator: ITranslator | null
 ): Promise<IGitExtension> {
   let settings: ISettingRegistry.ISettings | undefined = undefined;
-  let serverSettings: Git.IServerSettings;
+  let gitServerSettings: Git.IServerSettings;
   translator = translator ?? nullTranslator;
   const trans = translator.load('jupyterlab_git');
 
@@ -98,9 +98,10 @@ async function activate(
       trans.__('Failed to load settings for the Git Extension.\n%1', error)
     );
   }
+  const serverSettings = app.serviceManager.serverSettings;
   try {
-    serverSettings = await getServerSettings(trans);
-    const { frontendVersion, gitVersion, serverVersion } = serverSettings;
+    gitServerSettings = await getServerSettings(trans, serverSettings);
+    const { frontendVersion, gitVersion, serverVersion } = gitServerSettings;
 
     // Version validation
     if (!gitVersion) {
@@ -145,7 +146,12 @@ async function activate(
     return null;
   }
   // Create the Git model
-  const gitExtension = new GitExtension(docmanager, app.docRegistry, settings);
+  const gitExtension = new GitExtension(
+    docmanager,
+    app.docRegistry,
+    settings,
+    serverSettings
+  );
 
   const onPathChanged = (
     model: FileBrowserModel,
