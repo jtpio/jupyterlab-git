@@ -7,7 +7,8 @@
 
 import { INotebookContent } from '@jupyterlab/nbformat';
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
-import { Contents, ServerConnection } from '@jupyterlab/services';
+import { Contents } from '@jupyterlab/services';
+import type { ServerConnection } from '@jupyterlab/services';
 import { nullTranslator, TranslationBundle } from '@jupyterlab/translation';
 import { PromiseDelegate } from '@lumino/coreutils';
 import { Message } from '@lumino/messaging';
