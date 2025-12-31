@@ -745,7 +745,7 @@ export function addCommands(
               model,
               toolbar: diffWidget.toolbar,
               translator,
-              serverSettings: gitModel.serverSettings
+              serverSettings: serviceManager.serverSettings
             });
 
             diffWidget.toolbar.addItem('spacer', Toolbar.createSpacerItem());
@@ -1320,7 +1320,7 @@ export function addCommands(
                   reference: challengerRef
                 },
                 'git',
-                gitModel.serverSettings
+                serviceManager.serverSettings
               ).then(data => data.content);
             },
             label:
@@ -1340,7 +1340,7 @@ export function addCommands(
                   reference: { git: diffContext.previousRef }
                 },
                 'git',
-                gitModel.serverSettings
+                serviceManager.serverSettings
               ).then(data => data.content);
             },
             label:
@@ -1381,7 +1381,7 @@ export function addCommands(
                   }
                 },
                 'git',
-                gitModel.serverSettings
+                serviceManager.serverSettings
               ).then(data => data.content);
             },
             label: trans.__('Result'),

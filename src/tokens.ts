@@ -101,11 +101,6 @@ export interface IGitExtension extends IDisposable {
   readonly credentialsRequiredChanged: ISignal<IGitExtension, boolean>;
 
   /**
-   * Server connection settings for API requests.
-   */
-  readonly serverSettings: ServerConnection.ISettings | undefined;
-
-  /**
    * Git repository status.
    */
   readonly status: Git.IStatus;

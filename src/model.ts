@@ -366,13 +366,6 @@ export class GitExtension implements IGitExtension {
   }
 
   /**
-   * Server connection settings for API requests.
-   */
-  get serverSettings(): ServerConnection.ISettings | undefined {
-    return this._serverSettings;
-  }
-
-  /**
    * Get the current markers
    *
    * Note: This makes sure it always returns non null value
