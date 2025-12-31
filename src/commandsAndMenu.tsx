@@ -138,6 +138,7 @@ export function addCommands(
   translator: ITranslator
 ): void {
   const { commands, shell, serviceManager } = app;
+  const { serverSettings } = serviceManager;
   const trans = translator.load('jupyterlab_git');
 
   /**
@@ -745,7 +746,7 @@ export function addCommands(
               model,
               toolbar: diffWidget.toolbar,
               translator,
-              serverSettings: serviceManager.serverSettings
+              serverSettings
             });
 
             diffWidget.toolbar.addItem('spacer', Toolbar.createSpacerItem());
@@ -1320,7 +1321,7 @@ export function addCommands(
                   reference: challengerRef
                 },
                 'git',
-                serviceManager.serverSettings
+                serverSettings
               ).then(data => data.content);
             },
             label:
@@ -1340,7 +1341,7 @@ export function addCommands(
                   reference: { git: diffContext.previousRef }
                 },
                 'git',
-                serviceManager.serverSettings
+                serverSettings
               ).then(data => data.content);
             },
             label:
@@ -1381,7 +1382,7 @@ export function addCommands(
                   }
                 },
                 'git',
-                serviceManager.serverSettings
+                serverSettings
               ).then(data => data.content);
             },
             label: trans.__('Result'),
