@@ -53,7 +53,10 @@ describe('git-commands', () => {
     commands = new CommandRegistry();
     const app = {
       commands,
-      shell: null as any
+      shell: null as any,
+      serviceManager: {
+        serverSettings: {}
+      }
     };
 
     model = new GitExtension(app as any);
