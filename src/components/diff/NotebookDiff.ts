@@ -7,7 +7,7 @@
 
 import { INotebookContent } from '@jupyterlab/nbformat';
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
-import { Contents } from '@jupyterlab/services';
+import { Contents, ServerConnection } from '@jupyterlab/services';
 import { nullTranslator, TranslationBundle } from '@jupyterlab/translation';
 import { PromiseDelegate } from '@lumino/coreutils';
 import { Message } from '@lumino/messaging';
@@ -78,13 +78,14 @@ export const createNotebookDiff = async ({
   model,
   renderMime,
   toolbar,
-  translator
+  translator,
+  serverSettings
 }: Git.Diff.IFactoryOptions & {
   renderMime: IRenderMimeRegistry;
 }): Promise<NotebookDiff> => {
   // Create the notebook diff view
   const trans = (translator ?? nullTranslator).load('jupyterlab_git');
-  const diffWidget = new NotebookDiff(model, renderMime, trans);
+  const diffWidget = new NotebookDiff(model, renderMime, trans, serverSettings);
   diffWidget.addClass('jp-git-diff-root');
 
   await diffWidget.ready;
@@ -127,7 +128,8 @@ export class NotebookDiff extends Panel implements Git.Diff.IDiffWidget {
   constructor(
     model: Git.Diff.IModel,
     renderMime: IRenderMimeRegistry,
-    translator?: TranslationBundle
+    translator?: TranslationBundle,
+    serverSettings?: ServerConnection.ISettings
   ) {
     super();
     const getReady = new PromiseDelegate<void>();
@@ -135,6 +137,7 @@ export class NotebookDiff extends Panel implements Git.Diff.IDiffWidget {
     this._model = model;
     this._renderMime = renderMime;
     this._trans = translator ?? nullTranslator.load('jupyterlab_git');
+    this._serverSettings = serverSettings;
 
     this.addClass(NBDIME_CLASS);
 
@@ -294,10 +297,16 @@ export class NotebookDiff extends Panel implements Git.Diff.IDiffWidget {
     challengerContent: string,
     referenceContent: string
   ): Promise<NotebookDiffWidget> {
-    const data = await requestAPI<INbdimeDiff>('diffnotebook', 'POST', {
-      currentContent: challengerContent,
-      previousContent: referenceContent
-    });
+    const data = await requestAPI<INbdimeDiff>(
+      'diffnotebook',
+      'POST',
+      {
+        currentContent: challengerContent,
+        previousContent: referenceContent
+      },
+      'git',
+      this._serverSettings
+    );
 
     const model = new NotebookDiffModel(data.base, data.diff);
     return new NotebookDiffWidget({ model, rendermime: this._renderMime });
@@ -308,11 +317,17 @@ export class NotebookDiff extends Panel implements Git.Diff.IDiffWidget {
     referenceContent: string,
     baseContent: string
   ): Promise<NotebookMergeWidget> {
-    const data = await requestAPI<INbdimeMergeDiff>('diffnotebook', 'POST', {
-      currentContent: challengerContent,
-      previousContent: referenceContent,
-      baseContent
-    });
+    const data = await requestAPI<INbdimeMergeDiff>(
+      'diffnotebook',
+      'POST',
+      {
+        currentContent: challengerContent,
+        previousContent: referenceContent,
+        baseContent
+      },
+      'git',
+      this._serverSettings
+    );
 
     const model = new NotebookMergeModel(data.base, data.merge_decisions);
     return new NotebookMergeWidget({ model, rendermime: this._renderMime });
@@ -359,6 +374,7 @@ export class NotebookDiff extends Panel implements Git.Diff.IDiffWidget {
   protected _renderMime: IRenderMimeRegistry;
   // @ts-expect-error Complex initialization
   protected _scroller: Panel;
+  protected _serverSettings: ServerConnection.ISettings | undefined;
   protected _trans: TranslationBundle;
 }
 
