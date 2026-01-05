@@ -39,10 +39,16 @@ describe('NotebookDiff', () => {
     });
     setTimeout(() => {
       expect(requestAPI).toHaveBeenCalled();
-      expect(requestAPI).toBeCalledWith('diffnotebook', 'POST', {
-        currentContent: 'challenger',
-        previousContent: 'reference'
-      });
+      expect(requestAPI).toBeCalledWith(
+        'diffnotebook',
+        'POST',
+        {
+          currentContent: 'challenger',
+          previousContent: 'reference'
+        },
+        'git',
+        undefined
+      );
       expect(widget.node.querySelectorAll('.jp-git-diff-error')).toHaveLength(
         0
       );
@@ -88,10 +94,16 @@ describe('NotebookDiff', () => {
     });
     setTimeout(() => {
       expect(requestAPI).toHaveBeenCalled();
-      expect(requestAPI).toBeCalledWith('diffnotebook', 'POST', {
-        currentContent: 'challenger',
-        previousContent: 'reference'
-      });
+      expect(requestAPI).toBeCalledWith(
+        'diffnotebook',
+        'POST',
+        {
+          currentContent: 'challenger',
+          previousContent: 'reference'
+        },
+        'git',
+        undefined
+      );
       expect(
         widget.node.querySelector('.jp-git-diff-error')!.innerHTML
       ).toContain('TEST_ERROR_MESSAGE');

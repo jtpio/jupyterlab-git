@@ -739,6 +739,10 @@ export namespace Git {
        * Application translator object
        */
       translator?: ITranslator;
+      /**
+       * Server connection settings for API requests
+       */
+      serverSettings?: ServerConnection.ISettings;
     }
 
     /**

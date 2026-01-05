@@ -138,6 +138,7 @@ export function addCommands(
   translator: ITranslator
 ): void {
   const { commands, shell, serviceManager } = app;
+  const { serverSettings } = serviceManager;
   const trans = translator.load('jupyterlab_git');
 
   /**
@@ -744,7 +745,8 @@ export function addCommands(
             const widget = await buildDiffWidget({
               model,
               toolbar: diffWidget.toolbar,
-              translator
+              translator,
+              serverSettings
             });
 
             diffWidget.toolbar.addItem('spacer', Toolbar.createSpacerItem());
@@ -1317,7 +1319,9 @@ export function addCommands(
                   filename,
                   // @ts-expect-error this is serializable
                   reference: challengerRef
-                }
+                },
+                'git',
+                serverSettings
               ).then(data => data.content);
             },
             label:
@@ -1335,7 +1339,9 @@ export function addCommands(
                 {
                   filename: previousFilePath ?? filename,
                   reference: { git: diffContext.previousRef }
-                }
+                },
+                'git',
+                serverSettings
               ).then(data => data.content);
             },
             label:
@@ -1374,7 +1380,9 @@ export function addCommands(
                   reference: {
                     special: Git.Diff.SpecialRef[diffContext.baseRef as any]
                   }
-                }
+                },
+                'git',
+                serverSettings
               ).then(data => data.content);
             },
             label: trans.__('Result'),
