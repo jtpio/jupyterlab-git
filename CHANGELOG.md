@@ -2,6 +2,26 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.51.4
+
+([Full Changelog](https://github.com/jupyterlab/jupyterlab-git/compare/v0.51.3...1a6a04b339c47a586ac95c5cc3470299d3e2c69a))
+
+### Maintenance and upkeep improvements
+
+- Fix use of server settings [#1440](https://github.com/jupyterlab/jupyterlab-git/pull/1440) ([@jtpio](https://github.com/jtpio), [@krassowski](https://github.com/krassowski))
+- Bump js-yaml from 3.14.1 to 3.14.2 [#1438](https://github.com/jupyterlab/jupyterlab-git/pull/1438) ([@jtpio](https://github.com/jtpio))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/jupyterlab/jupyterlab-git/graphs/contributors?from=2025-12-10&to=2026-01-05&type=c))
+
+@jtpio ([activity](https://github.com/search?q=repo%3Ajupyterlab%2Fjupyterlab-git+involves%3Ajtpio+updated%3A2025-12-10..2026-01-05&type=Issues)) | @krassowski ([activity](https://github.com/search?q=repo%3Ajupyterlab%2Fjupyterlab-git+involves%3Akrassowski+updated%3A2025-12-10..2026-01-05&type=Issues))
+
+<!-- <END NEW CHANGELOG ENTRY> -->
+
 ## 0.51.3
 
 ([Full Changelog](https://github.com/jupyterlab/jupyterlab-git/compare/v0.51.2...73bb0d02e48e8fa5794885be900809b588d2c122))
@@ -24,8 +44,6 @@
 ([GitHub contributors page for this release](https://github.com/jupyterlab/jupyterlab-git/graphs/contributors?from=2025-06-12&to=2025-12-10&type=c))
 
 [@github-actions](https://github.com/search?q=repo%3Ajupyterlab%2Fjupyterlab-git+involves%3Agithub-actions+updated%3A2025-06-12..2025-12-10&type=Issues) | [@jesuino](https://github.com/search?q=repo%3Ajupyterlab%2Fjupyterlab-git+involves%3Ajesuino+updated%3A2025-06-12..2025-12-10&type=Issues) | [@jtpio](https://github.com/search?q=repo%3Ajupyterlab%2Fjupyterlab-git+involves%3Ajtpio+updated%3A2025-06-12..2025-12-10&type=Issues) | [@Meriem-BenIsmail](https://github.com/search?q=repo%3Ajupyterlab%2Fjupyterlab-git+involves%3AMeriem-BenIsmail+updated%3A2025-06-12..2025-12-10&type=Issues)
-
-<!-- <END NEW CHANGELOG ENTRY> -->
 
 ## 0.51.2
 
