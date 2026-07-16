@@ -26,7 +26,12 @@ import {
   newBranchButtonClass,
   wrapperClass
 } from '../style/BranchMenu';
-import { branchIcon, mergeIcon, trashIcon } from '../style/icons';
+import {
+  branchIcon,
+  compareWithSelectedIcon,
+  mergeIcon,
+  trashIcon
+} from '../style/icons';
 import { CommandIDs, Git, IGitExtension } from '../tokens';
 import { ActionButton } from './ActionButton';
 import { NewBranchDialog } from './NewBranchDialog';
@@ -311,6 +316,21 @@ export class BranchMenu extends React.Component<
             />
           </>
         )}
+        {!isActive && (
+          <ActionButton
+            className={hiddenButtonStyle}
+            icon={compareWithSelectedIcon}
+            title={this.props.trans.__(
+              'Compare this branch with the current one'
+            )}
+            onClick={(
+              event?: React.MouseEvent<HTMLButtonElement, MouseEvent>
+            ) => {
+              event?.stopPropagation();
+              this._onCompareBranch(branch);
+            }}
+          />
+        )}
       </ListItem>
     );
   };
@@ -393,6 +413,26 @@ export class BranchMenu extends React.Component<
    */
   private _onMergeBranch = async (branch: string): Promise<void> => {
     await this.props.commands.execute(CommandIDs.gitMerge, { branch });
+  };
+
+  /**
+   * Callback on compare branch button
+   *
+   * @param branch Branch to compare the current branch against
+   */
+  private _onCompareBranch = (branch: Git.IBranch): void => {
+    const currentBranch = this.props.model.currentBranch;
+    if (currentBranch === null) {
+      return;
+    }
+    this.props.model.selectedHistoryFile = null;
+    this.props.model.selectedComparison = {
+      reference: { commit: branch.top_commit, label: branch.name },
+      challenger: {
+        commit: currentBranch.top_commit,
+        label: currentBranch.name
+      }
+    };
   };
 
   /**

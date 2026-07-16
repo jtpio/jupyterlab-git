@@ -90,6 +90,11 @@ export interface IGitExtension extends IDisposable {
   selectedHistoryFile: Git.IStatusFile | null;
 
   /**
+   * References selected for comparison, or null if no comparison is active.
+   */
+  selectedComparison: Git.IComparison | null;
+
+  /**
    * Boolean indicating whether there are dirty staged files
    * (e.g., due to unsaved changes on files that have been previously staged).
    */
@@ -126,6 +131,14 @@ export interface IGitExtension extends IDisposable {
   readonly selectedHistoryFileChanged: ISignal<
     IGitExtension,
     Git.IStatusFile | null
+  >;
+
+  /**
+   * A signal emitted when the references selected for comparison change.
+   */
+  readonly selectedComparisonChanged: ISignal<
+    IGitExtension,
+    Git.IComparison | null
   >;
 
   /**
@@ -1191,6 +1204,37 @@ export namespace Git {
 
     // when file has been relocated
     previous_file_path?: string;
+  }
+
+  /**
+   * Interface describing a reference (commit, branch tip, ...) selected
+   * for comparison.
+   */
+  export interface IComparisonRef {
+    /**
+     * Commit SHA the reference points to.
+     */
+    commit: string;
+
+    /**
+     * Label describing the reference (e.g. a branch name or an abbreviated SHA).
+     */
+    label: string;
+  }
+
+  /**
+   * Interface describing a pair of references to compare.
+   */
+  export interface IComparison {
+    /**
+     * The reference to compare against, or null if not selected yet.
+     */
+    reference: IComparisonRef | null;
+
+    /**
+     * The reference to compare, or null if not selected yet.
+     */
+    challenger: IComparisonRef | null;
   }
 
   /** Interface for GitCommit request result,

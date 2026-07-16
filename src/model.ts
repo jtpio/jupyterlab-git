@@ -240,6 +240,19 @@ export class GitExtension implements IGitExtension {
   }
 
   /**
+   * References selected for comparison, or null if no comparison is active.
+   */
+  get selectedComparison(): Git.IComparison | null {
+    return this._selectedComparison;
+  }
+  set selectedComparison(comparison: Git.IComparison | null) {
+    if (this._selectedComparison !== comparison) {
+      this._selectedComparison = comparison;
+      this._selectedComparisonChanged.emit(comparison);
+    }
+  }
+
+  /**
    * Last author
    *
    */
@@ -301,6 +314,16 @@ export class GitExtension implements IGitExtension {
     Git.IStatusFile | null
   > {
     return this._selectedHistoryFileChanged;
+  }
+
+  /**
+   * A signal emitted when the references selected for comparison change.
+   */
+  get selectedComparisonChanged(): ISignal<
+    IGitExtension,
+    Git.IComparison | null
+  > {
+    return this._selectedComparisonChanged;
   }
 
   /**
@@ -2433,6 +2456,7 @@ export class GitExtension implements IGitExtension {
   private _remoteChangedFiles: Git.IStatusFile[] = [];
   private _changeUpstreamNotified: Git.IStatusFile[] = [];
   private _selectedHistoryFile: Git.IStatusFile | null = null;
+  private _selectedComparison: Git.IComparison | null = null;
   private _hasDirtyFiles = false;
   private _credentialsRequired = false;
   private _lastAuthor: Git.IIdentity | null = null;
@@ -2449,6 +2473,10 @@ export class GitExtension implements IGitExtension {
   private _selectedHistoryFileChanged = new Signal<
     IGitExtension,
     Git.IStatusFile | null
+  >(this);
+  private _selectedComparisonChanged = new Signal<
+    IGitExtension,
+    Git.IComparison | null
   >(this);
   private _repositoryChanged = new Signal<
     IGitExtension,

@@ -143,14 +143,14 @@ export interface IGitPanelState {
   hasDirtyFiles: boolean;
 
   /**
-   * The commit to compare against
+   * The reference to compare against
    */
-  referenceCommit: Git.ISingleCommitInfo | null;
+  referenceCommit: Git.IComparisonRef | null;
 
   /**
-   * The commit to compare
+   * The reference to compare
    */
-  challengerCommit: Git.ISingleCommitInfo | null;
+  challengerCommit: Git.IComparisonRef | null;
 
   /**
    * Stashed files
@@ -199,8 +199,8 @@ export class GitPanel extends React.Component<IGitPanelProps, IGitPanelState> {
       commitDescription: '',
       commitAmend: false,
       hasDirtyFiles: hasDirtyStagedFiles,
-      referenceCommit: null,
-      challengerCommit: null,
+      referenceCommit: props.model.selectedComparison?.reference ?? null,
+      challengerCommit: props.model.selectedComparison?.challenger ?? null,
       stash: stash,
       tagsList: tagsList,
       submodules: submodules
@@ -215,10 +215,9 @@ export class GitPanel extends React.Component<IGitPanelProps, IGitPanelState> {
 
     model.repositoryChanged.connect((_, args) => {
       this.setState({
-        repository: args.newValue,
-        referenceCommit: null,
-        challengerCommit: null
+        repository: args.newValue
       });
+      model.selectedComparison = null;
       this.refreshView();
     }, this);
 
@@ -261,11 +260,18 @@ export class GitPanel extends React.Component<IGitPanelProps, IGitPanelState> {
         await this.refreshTags();
       }, this);
       model.headChanged.connect(async () => {
+        model.selectedComparison = null;
         await this.refreshCurrentBranch();
         await this.refreshHistory();
       }, this);
       model.selectedHistoryFileChanged.connect(() => {
         this.refreshHistory();
+      }, this);
+      model.selectedComparisonChanged.connect((_, comparison) => {
+        this.setState({
+          referenceCommit: comparison?.reference ?? null,
+          challengerCommit: comparison?.challenger ?? null
+        });
       }, this);
     }
 
@@ -332,9 +338,7 @@ export class GitPanel extends React.Component<IGitPanelProps, IGitPanelState> {
     const { currentBranch } = this.props.model;
 
     this.setState({
-      currentBranch: currentBranch ? currentBranch.name : 'main',
-      referenceCommit: null,
-      challengerCommit: null
+      currentBranch: currentBranch ? currentBranch.name : 'main'
     });
   };
 
@@ -618,19 +622,24 @@ export class GitPanel extends React.Component<IGitPanelProps, IGitPanelState> {
           challengerCommit={this.state.challengerCommit}
           onSelectForCompare={commit => async event => {
             event?.stopPropagation();
-            this.setState({ referenceCommit: commit }, () => {
-              this._openSingleFileComparison(
-                event as React.MouseEvent<HTMLLIElement, MouseEvent>
-              );
-            });
+            this.props.model.selectedComparison = {
+              reference: this._toComparisonRef(commit),
+              challenger:
+                this.props.model.selectedComparison?.challenger ?? null
+            };
+            this._openSingleFileComparison(
+              event as React.MouseEvent<HTMLLIElement, MouseEvent>
+            );
           }}
           onCompareWithSelected={commit => async event => {
             event?.stopPropagation();
-            this.setState({ challengerCommit: commit }, () => {
-              this._openSingleFileComparison(
-                event as React.MouseEvent<HTMLLIElement, MouseEvent>
-              );
-            });
+            this.props.model.selectedComparison = {
+              reference: this.props.model.selectedComparison?.reference ?? null,
+              challenger: this._toComparisonRef(commit)
+            };
+            this._openSingleFileComparison(
+              event as React.MouseEvent<HTMLLIElement, MouseEvent>
+            );
           }}
         />
         {this.props.model.selectedHistoryFile === null &&
@@ -638,12 +647,8 @@ export class GitPanel extends React.Component<IGitPanelProps, IGitPanelState> {
             <CommitComparisonBox
               header={this.props.trans.__(
                 'Compare %1 and %2',
-                this.state.referenceCommit
-                  ? this.state.referenceCommit.commit.substring(0, 7)
-                  : '...',
-                this.state.challengerCommit
-                  ? this.state.challengerCommit.commit.substring(0, 7)
-                  : '...'
+                this.state.referenceCommit?.label ?? '...',
+                this.state.challengerCommit?.label ?? '...'
               )}
               referenceCommit={this.state.referenceCommit}
               challengerCommit={this.state.challengerCommit}
@@ -652,10 +657,7 @@ export class GitPanel extends React.Component<IGitPanelProps, IGitPanelState> {
               trans={this.props.trans}
               onClose={event => {
                 event?.stopPropagation();
-                this.setState({
-                  referenceCommit: null,
-                  challengerCommit: null
-                });
+                this.props.model.selectedComparison = null;
               }}
               onOpenDiff={
                 this.state.referenceCommit && this.state.challengerCommit
@@ -1078,19 +1080,37 @@ export class GitPanel extends React.Component<IGitPanelProps, IGitPanelState> {
   }
 
   /**
+   * Converts a commit to a reference for comparison.
    *
+   * @param commit - commit information
+   * @returns the comparison reference
+   */
+  private _toComparisonRef(commit: Git.ISingleCommitInfo): Git.IComparisonRef {
+    return {
+      commit: commit.commit,
+      label:
+        +commit.commit in Git.Diff.SpecialRef
+          ? Git.Diff.SpecialRef[+commit.commit]
+          : commit.commit.slice(0, 7)
+    };
+  }
+
+  /**
+   * Opens the comparison of the file selected for history between the
+   * references selected for comparison.
    */
   private _openSingleFileComparison(
     event: React.MouseEvent<HTMLLIElement, MouseEvent>
   ): void {
+    const comparison = this.props.model.selectedComparison;
     if (
       this.props.model.selectedHistoryFile &&
-      this.state.referenceCommit &&
-      this.state.challengerCommit
+      comparison?.reference &&
+      comparison?.challenger
     ) {
       openFileDiff(this.props.commands)(
-        this.state.challengerCommit,
-        this.state.referenceCommit
+        comparison.challenger,
+        comparison.reference
       )(
         this.props.model.selectedHistoryFile.to,
         !this.props.model.selectedHistoryFile.is_binary

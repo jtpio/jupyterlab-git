@@ -190,10 +190,17 @@ describe('BranchMenu', () => {
         tag: ''
       }
     ].forEach(branch => {
-      const display = !(branch.is_current_branch || branch.is_remote_branch);
-      it(`should${
-        display ? ' ' : 'not '
-      }display delete and merge buttons for ${JSON.stringify(branch)}`, () => {
+      // The delete and merge buttons are only displayed for local branches
+      // which are not the current one; the compare button is displayed for
+      // any branch which is not the current one.
+      const nButtons = branch.is_current_branch
+        ? 0
+        : branch.is_remote_branch
+        ? 1
+        : 3;
+      it(`should display ${nButtons} action button(s) for ${JSON.stringify(
+        branch
+      )}`, () => {
         render(
           <BranchMenu
             {...createProps({
@@ -205,7 +212,7 @@ describe('BranchMenu', () => {
 
         expect(
           screen.getByRole('listitem').querySelectorAll('button').length
-        ).toEqual(display ? 2 : 0);
+        ).toEqual(nButtons);
       });
     });
 
@@ -301,6 +308,68 @@ describe('BranchMenu', () => {
       expect(fakeExecutioner).toHaveBeenCalledTimes(1);
       expect(fakeExecutioner).toHaveBeenCalledWith('git:merge', {
         branch: branchName
+      });
+    });
+
+    it('should select the branch for comparison when clicked on the compare button', async () => {
+      const branchName = 'main';
+      const mock = git as jest.Mocked<typeof git>;
+      mock.requestAPI.mockImplementation(
+        mockedRequestAPI({
+          responses: {
+            ...defaultMockedResponses,
+            branch: {
+              body: () => ({
+                code: 0,
+                branches: [],
+                current_branch: {
+                  is_current_branch: true,
+                  is_remote_branch: false,
+                  name: 'current',
+                  upstream: '',
+                  top_commit: '2414721b194453f058079d897d13c4e377f92dc6',
+                  tag: ''
+                }
+              })
+            }
+          }
+        }) as any
+      );
+      await model.refreshBranch();
+
+      render(
+        <BranchMenu
+          {...createProps({
+            currentBranch: 'current',
+            branches: [
+              {
+                is_current_branch: false,
+                is_remote_branch: false,
+                name: branchName,
+                upstream: '',
+                top_commit: 'dcb9a523a32c4dff9dea51ecb769066e79466ba0',
+                tag: ''
+              }
+            ]
+          })}
+        />
+      );
+
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: 'Compare this branch with the current one'
+        })
+      );
+
+      expect(model.selectedComparison).toEqual({
+        reference: {
+          commit: 'dcb9a523a32c4dff9dea51ecb769066e79466ba0',
+          label: branchName
+        },
+        challenger: {
+          commit: '2414721b194453f058079d897d13c4e377f92dc6',
+          label: 'current'
+        }
       });
     });
 

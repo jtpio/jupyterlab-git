@@ -274,6 +274,34 @@ describe('IGitExtension', () => {
     });
   });
 
+  describe('#selectedComparison', () => {
+    it('should default to null', () => {
+      expect(model.selectedComparison).toBeNull();
+    });
+
+    it('should emit a signal when the references selected for comparison change', async () => {
+      const comparison: Git.IComparison = {
+        reference: {
+          commit: 'dcb9a523a32c4dff9dea51ecb769066e79466ba0',
+          label: 'main'
+        },
+        challenger: {
+          commit: '2414721b194453f058079d897d13c4e377f92dc6',
+          label: 'my-branch'
+        }
+      };
+
+      const testSignal = testEmission(model.selectedComparisonChanged, {
+        test: (model, receivedComparison) => {
+          expect(receivedComparison).toEqual(comparison);
+        }
+      });
+
+      model.selectedComparison = comparison;
+      await testSignal;
+    });
+  });
+
   describe('#getFile', () => {
     it.each([
       ['dir1/dir2/repo/somefolder/file', 'somefolder/file', 'dir1/dir2/repo'],

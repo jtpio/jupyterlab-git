@@ -90,12 +90,15 @@ export const openFileDiff =
   /**
    * A callback function to display a file diff between two commits.
    *
-   * @param commit Commit data.
-   * @param previousCommit Previous commit data to display the diff against. If not specified, the diff will be against the preceding commit.
+   * @param commit Commit data or reference selected for comparison.
+   * @param previousCommit Commit data or reference to display the diff against. If not specified, the diff will be against the preceding commit.
    *
    * @returns A callback function.
    */
-  (commit: Git.ISingleCommitInfo, previousCommit?: Git.ISingleCommitInfo) =>
+  (
+    commit: Git.ISingleCommitInfo | Git.IComparisonRef,
+    previousCommit?: Git.ISingleCommitInfo | Git.IComparisonRef
+  ) =>
   /**
    * Returns a callback to be invoked on click to display a file diff.
    *
@@ -125,7 +128,9 @@ export const openFileDiff =
               previousFilePath,
               isText,
               context: {
-                previousRef: previousCommit?.commit ?? commit.pre_commits[0], // not sure
+                previousRef:
+                  previousCommit?.commit ??
+                  ('pre_commits' in commit ? commit.pre_commits[0] : ''),
                 currentRef: commit.commit
               }
             }

@@ -4,7 +4,8 @@ import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { TranslationBundle } from '@jupyterlab/translation';
 import { CommandRegistry } from '@lumino/commands';
 import { Message } from '@lumino/messaging';
-import { PanelLayout, Widget } from '@lumino/widgets';
+import { Signal } from '@lumino/signaling';
+import { AccordionPanel, PanelLayout, Widget } from '@lumino/widgets';
 import * as React from 'react';
 import { PanelWithToolbar, SidePanel } from '@jupyterlab/ui-components';
 import { GitPanel } from '../components/GitPanel';
@@ -47,16 +48,39 @@ export class GitWidget extends SidePanel {
     this.addWidget(
       this._createSection('Changes', this._createChangesSection())
     );
-    this.addWidget(
-      this._createSection('History', this._createHistorySection())
+    this._historySection = this._createSection(
+      'History',
+      this._createHistorySection()
     );
+    this.addWidget(this._historySection);
     this.addWidget(
       this._createSection('Branches and Tags', this._createBranchesSection())
     );
 
+    // Show the comparison box when references are selected for comparison
+    model.selectedComparisonChanged.connect((_, comparison) => {
+      if (comparison !== null && this.content instanceof AccordionPanel) {
+        const index = this.widgets.indexOf(this._historySection);
+        if (index !== -1) {
+          this.content.expand(index);
+        }
+      }
+    }, this);
+
     // Add refresh standby condition if this widget is hidden
     model.refreshStandbyCondition = (): boolean =>
       !this._settings.composite['refreshIfHidden'] && this.isHidden;
+  }
+
+  /**
+   * Dispose of the widget.
+   */
+  dispose(): void {
+    if (this.isDisposed) {
+      return;
+    }
+    Signal.clearData(this);
+    super.dispose();
   }
 
   /**
@@ -136,6 +160,7 @@ export class GitWidget extends SidePanel {
   private _gitTrans: TranslationBundle;
   private _commands: CommandRegistry;
   private _fileBrowserModel: FileBrowserModel;
+  private _historySection: PanelWithToolbar;
   private _model: GitExtension;
   private _settings: ISettingRegistry.ISettings;
 }

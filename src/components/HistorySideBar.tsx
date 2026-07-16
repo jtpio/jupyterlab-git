@@ -55,14 +55,14 @@ export interface IHistorySideBarProps {
   trans: TranslationBundle;
 
   /**
-   * The commit to compare against.
+   * The reference to compare against.
    */
-  referenceCommit: Git.ISingleCommitInfo | null;
+  referenceCommit: Git.IComparisonRef | null;
 
   /**
-   * The commit to compare.
+   * The reference to compare.
    */
-  challengerCommit: Git.ISingleCommitInfo | null;
+  challengerCommit: Git.IComparisonRef | null;
 
   /**
    * Callback invoked upon clicking to select a commit for comparison.
