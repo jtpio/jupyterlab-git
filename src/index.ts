@@ -6,6 +6,7 @@ import {
 import {
   Dialog,
   ICommandPalette,
+  IMovableSectionRegistry,
   showErrorMessage
 } from '@jupyterlab/apputils';
 import { IEditorServices } from '@jupyterlab/codeeditor';
@@ -18,6 +19,7 @@ import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { IStatusBar } from '@jupyterlab/statusbar';
 import { ITranslator, nullTranslator } from '@jupyterlab/translation';
+import { Token } from '@lumino/coreutils';
 import { gitCloneCommandPlugin } from './cloneCommand';
 import {
   addCommands,
@@ -57,6 +59,15 @@ export {
 } from './tokens';
 
 /**
+ * The movable section registry token, when the running JupyterLab provides
+ * one. The token only exists in `@jupyterlab/apputils` >= 4.7 (JupyterLab
+ * 4.6), so it is referenced conditionally to keep the plugin loadable on
+ * older versions.
+ */
+const movableSectionTokens: Token<IMovableSectionRegistry>[] =
+  IMovableSectionRegistry ? [IMovableSectionRegistry] : [];
+
+/**
  * The default running sessions extension.
  */
 const plugin: JupyterFrontEndPlugin<IGitExtension> = {
@@ -70,7 +81,13 @@ const plugin: JupyterFrontEndPlugin<IGitExtension> = {
     IDocumentManager,
     IGitSidebar
   ],
-  optional: [IMainMenu, IStatusBar, ICommandPalette, ITranslator],
+  optional: [
+    IMainMenu,
+    IStatusBar,
+    ICommandPalette,
+    ITranslator,
+    ...movableSectionTokens
+  ],
   provides: IGitExtension,
   activate,
   autoStart: true
@@ -178,7 +195,8 @@ async function activate(
   mainMenu: IMainMenu | null,
   statusBar: IStatusBar | null,
   palette: ICommandPalette | null,
-  translator: ITranslator | null
+  translator: ITranslator | null,
+  movableSections?: IMovableSectionRegistry | null
 ): Promise<IGitExtension> {
   let settings: ISettingRegistry.ISettings | undefined = undefined;
   let gitServerSettings: Git.IServerSettings;
@@ -347,6 +365,14 @@ async function activate(
     // Rank has been chosen somewhat arbitrarily to give priority to the running
     // sessions widget in the sidebar.
     app.shell.add(gitPlugin, 'left', { rank: 200 });
+
+    if (movableSections) {
+      // Let users move Git sections to other panels — and host sections
+      // moved in from other panels — through the JupyterLab >= 4.6
+      // move-sections plugin.
+      movableSections.registerSource(PLUGIN_ID, trans.__('Git'), gitPlugin);
+      movableSections.registerTarget(PLUGIN_ID, trans.__('Git'), gitPlugin);
+    }
 
     // Add a menu for the plugin
     if (mainMenu && app.version.split('.').slice(0, 2).join('.') < '3.1') {

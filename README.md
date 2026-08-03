@@ -66,6 +66,13 @@ The registration returns an `IDisposable` that removes the section and disposes
 its widget. Contributions can also provide an `isVisible` callback and a
 `visibilityChanged` signal for conditionally displayed sections.
 
+On JupyterLab 4.6 or newer, the Git sidebar also integrates with the
+[movable accordion sections](https://jupyterlab.readthedocs.io/en/stable/extension/extension_points.html#movable-accordion-sections)
+feature: right-click a section header to move the section to another panel
+(for example the file browser), and move it back from there. The Git sidebar
+can likewise host sections moved in from other panels, such as the running
+sessions panel.
+
 ## Install
 
 > **Note for users upgrading from a previous version:**
