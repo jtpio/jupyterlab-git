@@ -26,6 +26,46 @@ For older versions of JupyterLab, go to:
 - Open the Git extension from the _Git_ tab on the left panel
 - [Set up authentication](#authentication-to-remote-repository-hosts)
 
+### Git sidebar sections
+
+Each accordion section in the Git sidebar is provided by an independent
+JupyterLab plugin:
+
+- `@jupyterlab/git:changes-section`
+- `@jupyterlab/git:history-section`
+- `@jupyterlab/git:branches-and-tags-section`
+
+Individual sections can be removed by disabling their plugin ID through
+JupyterLab's plugin management.
+
+Other extensions can contribute sections by requiring the public
+`IGitSidebar` token and registering a widget:
+
+```ts
+import { JupyterFrontEndPlugin } from '@jupyterlab/application';
+import { IGitSidebar } from '@jupyterlab/git';
+import { Widget } from '@lumino/widgets';
+
+const plugin: JupyterFrontEndPlugin<void> = {
+  id: 'my-extension:git-section',
+  autoStart: true,
+  requires: [IGitSidebar],
+  activate: (app, sidebar) => {
+    const section = new Widget();
+    section.title.label = 'My Git Section';
+    sidebar.registerSection({
+      id: 'my-extension:git-section',
+      rank: 50,
+      widget: section
+    });
+  }
+};
+```
+
+The registration returns an `IDisposable` that removes the section and disposes
+its widget. Contributions can also provide an `isVisible` callback and a
+`visibilityChanged` signal for conditionally displayed sections.
+
 ## Install
 
 > **Note for users upgrading from a previous version:**

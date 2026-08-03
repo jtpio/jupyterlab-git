@@ -30,27 +30,45 @@ import { createPlainTextDiff } from './components/diff/PlainTextDiff';
 import { addStatusBarWidget } from './components/StatusWidget';
 import { GitExtension } from './model';
 import { getServerSettings } from './server';
+import {
+  gitBranchesAndTagsSectionPlugin,
+  gitChangesSectionPlugin,
+  gitHistorySectionPlugin,
+  gitSidebarPlugin
+} from './sidebarPlugins';
 import { gitIcon } from './style/icons';
-import { CommandIDs, Git, IGitExtension } from './tokens';
+import {
+  CommandIDs,
+  Git,
+  IGitExtension,
+  IGitSidebar,
+  PLUGIN_ID
+} from './tokens';
 import { GitWidget } from './widgets/GitWidget';
 
 export { DiffModel } from './components/diff/model';
 export { NotebookDiff } from './components/diff/NotebookDiff';
 export { PlainTextDiff } from './components/diff/PlainTextDiff';
-export { Git, IGitExtension } from './tokens';
+export {
+  Git,
+  GitSidebarSectionIDs,
+  IGitExtension,
+  IGitSidebar
+} from './tokens';
 
 /**
  * The default running sessions extension.
  */
 const plugin: JupyterFrontEndPlugin<IGitExtension> = {
-  id: '@jupyterlab/git:plugin',
+  id: PLUGIN_ID,
   description: 'A JupyterLab extension for version control using Git.',
   requires: [
     ILayoutRestorer,
     IEditorServices,
     IDefaultFileBrowser,
     ISettingRegistry,
-    IDocumentManager
+    IDocumentManager,
+    IGitSidebar
   ],
   optional: [IMainMenu, IStatusBar, ICommandPalette, ITranslator],
   provides: IGitExtension,
@@ -134,7 +152,11 @@ export default [
   gitCloneCommandPlugin,
   notebookDiffPlugin,
   imageDiffPlugin,
-  plainTextDiffPlugin
+  plainTextDiffPlugin,
+  gitSidebarPlugin,
+  gitChangesSectionPlugin,
+  gitHistorySectionPlugin,
+  gitBranchesAndTagsSectionPlugin
 ];
 
 /**
@@ -152,6 +174,7 @@ async function activate(
   fileBrowser: IDefaultFileBrowser,
   settingRegistry: ISettingRegistry,
   docmanager: IDocumentManager,
+  sidebar: IGitSidebar,
   mainMenu: IMainMenu | null,
   statusBar: IStatusBar | null,
   palette: ICommandPalette | null,
@@ -292,8 +315,8 @@ async function activate(
       gitExtension,
       settings,
       app.commands,
-      fileBrowser.model,
-      trans
+      trans,
+      sidebar
     );
     gitPlugin.id = 'jp-git-sessions';
     gitPlugin.title.icon = gitIcon;
