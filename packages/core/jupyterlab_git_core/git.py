@@ -26,6 +26,7 @@ except ImportError:
     diff_notebooks = None
     merge_notebooks = None
 
+from .askpass import askpass_env
 from .log import get_logger
 
 # Regex pattern to capture (key, value) of Git configuration options.
@@ -189,7 +190,14 @@ async def execute(
         is_binary=is_binary,
     ) -> "Tuple[int, str, str]":
         process = subprocess.Popen(
-            cmdline, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=cwd, env=env
+            cmdline,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=cwd,
+            env={**(os.environ if env is None else env), **askpass_env()},
+            # Without a controlling terminal, ssh cannot prompt on the terminal running
+            # Jupyter and block the execution lock while waiting for an answer.
+            start_new_session=True,
         )
         output, error = process.communicate()
         if is_binary:

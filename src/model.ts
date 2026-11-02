@@ -6,7 +6,7 @@ import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { JSONExt, JSONObject, ReadonlyJSONObject } from '@lumino/coreutils';
 import { Poll } from '@lumino/polling';
 import { ISignal, Signal } from '@lumino/signaling';
-import { AUTH_ERROR_MESSAGES, requestAPI } from './git';
+import { AUTH_ERROR_MESSAGES, SSH_KEY_LOCKED_REGEX, requestAPI } from './git';
 import { TaskHandler } from './taskhandler';
 import { Git, IGitExtension } from './tokens';
 import { decodeStage } from './utils';
@@ -2198,6 +2198,21 @@ export class GitExtension implements IGitExtension {
   }
 
   /**
+   * Unlock a passphrase-protected SSH key by adding it to the SSH agent
+   *
+   * @param key - path of the private key
+   * @param passphrase - passphrase of the key
+   *
+   * @throws {Git.GitResponseError} If the server response is not ok
+   * @throws {ServerConnection.NetworkError} If the request cannot be made
+   */
+  async addSSHKeyToAgent(key: string, passphrase: string): Promise<void> {
+    await this._taskHandler.execute<void>('git:ssh:unlock', async () => {
+      await this._requestAPI<void>('ssh_agent', 'POST', { key, passphrase });
+    });
+  }
+
+  /**
    * Make request for a list of all git branches in the repository
    * Retrieve a list of repository branches.
    *
@@ -2373,9 +2388,11 @@ export class GitExtension implements IGitExtension {
       await this.fetch();
     } catch (error) {
       console.error('Failed to fetch remotes', error);
+      const message = (error as Error).message;
       if (
+        SSH_KEY_LOCKED_REGEX.test(message) ||
         AUTH_ERROR_MESSAGES.some(
-          errorMessage => (error as Error).message.indexOf(errorMessage) > -1
+          errorMessage => message.indexOf(errorMessage) > -1
         )
       ) {
         this.credentialsRequired = true;

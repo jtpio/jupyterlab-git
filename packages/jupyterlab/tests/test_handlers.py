@@ -1003,3 +1003,83 @@ async def test_option_like_ref_is_rejected(
 
     assert_http_error(e, 400)
     mock_execute.assert_not_called()
+
+
+@patch("jupyterlab_git.handlers.SSH.add_key")
+async def test_ssh_agent_handler(mock_add_key, jp_fetch, tmp_path):
+    key = tmp_path / "id_ed25519"
+    key.write_text("")
+    mock_add_key.return_value = {
+        "code": 0,
+        "message": f"Identity added: {key}",
+        "bad_passphrase": False,
+    }
+
+    response = await jp_fetch(
+        NAMESPACE,
+        "ssh_agent",
+        body=json.dumps({"key": str(key), "passphrase": "open sesame"}),
+        method="POST",
+    )
+
+    mock_add_key.assert_awaited_once_with(str(key), "open sesame")
+    assert response.code == 200
+
+
+@patch("jupyterlab_git.handlers.SSH.add_key")
+async def test_ssh_agent_handler_bad_passphrase(mock_add_key, jp_fetch, tmp_path):
+    key = tmp_path / "id_ed25519"
+    key.write_text("")
+    mock_add_key.return_value = {
+        "code": 1,
+        "message": "Incorrect passphrase for the SSH key.",
+        "bad_passphrase": True,
+    }
+
+    with pytest.raises(HTTPClientError) as e:
+        await jp_fetch(
+            NAMESPACE,
+            "ssh_agent",
+            body=json.dumps({"key": str(key), "passphrase": "wrong"}),
+            method="POST",
+        )
+
+    assert_http_error(e, 400, "Incorrect passphrase")
+    assert json.loads(e.value.response.body)["bad_passphrase"]
+
+
+@patch("jupyterlab_git.handlers.SSH.add_key")
+async def test_ssh_agent_handler_missing_key(mock_add_key, jp_fetch, tmp_path):
+    with pytest.raises(HTTPClientError) as e:
+        await jp_fetch(
+            NAMESPACE,
+            "ssh_agent",
+            body=json.dumps({"key": str(tmp_path / "missing"), "passphrase": "x"}),
+            method="POST",
+        )
+
+    assert_http_error(e, 400, "No SSH key")
+    mock_add_key.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "message, status",
+    [
+        (
+            "SSH key '/home/me/.ssh/id_ed25519' is locked: a passphrase is required.\n"
+            "git@example.com: Permission denied (publickey).",
+            401,
+        ),
+        ("fatal: unable to access 'https://example.com/repo.git/'", 500),
+    ],
+)
+@patch("jupyterlab_git.handlers.GitFetchHandler.git", spec=Git)
+async def test_fetch_handler_error_status(mock_git, message, status, jp_fetch):
+    mock_git.fetch.return_value = {"code": 128, "message": message, "error": message}
+
+    with pytest.raises(HTTPClientError) as e:
+        await jp_fetch(
+            NAMESPACE, "test_path", "remote", "fetch", body="{}", method="POST"
+        )
+
+    assert_http_error(e, status, message.splitlines()[0])

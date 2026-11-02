@@ -2,10 +2,15 @@
 Module for executing SSH commands
 """
 
+import os
 import re
 import subprocess
-from .log import get_logger
 from pathlib import Path
+
+import anyio
+
+from .askpass import BAD_PASSPHRASE_MESSAGE, askpass_env
+from .log import get_logger
 
 GIT_SSH_HOST = re.compile(r"git@(.+):.+")
 
@@ -46,3 +51,35 @@ class SSH:
         except Exception as e:
             get_logger().error(f"Failed to add host: {e}.")
             raise e
+
+    async def add_key(self, key: str, passphrase: str) -> dict:
+        """
+        Add a passphrase-protected private key to the running SSH agent.
+        """
+        env = askpass_env(passphrase)
+        if not env:
+            return {"code": 1, "message": "Not supported on this platform."}
+
+        def run() -> subprocess.CompletedProcess:
+            return subprocess.run(
+                ["ssh-add", key],
+                env={**os.environ, **env},
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                start_new_session=True,
+                timeout=30,
+            )
+
+        try:
+            result = await anyio.to_thread.run_sync(run)
+        except (OSError, subprocess.SubprocessError) as e:
+            get_logger().error(f"Failed to add the SSH key to the agent: {e}")
+            return {"code": 1, "message": str(e)}
+
+        message = result.stderr.strip()
+        return {
+            "code": result.returncode,
+            "message": message,
+            "bad_passphrase": BAD_PASSPHRASE_MESSAGE in message,
+        }

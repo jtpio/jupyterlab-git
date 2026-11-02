@@ -22,6 +22,7 @@ except ImportError:
     hybridcontents = None
 
 from jupyterlab_git_core import __version__
+from jupyterlab_git_core.askpass import LOCKED_KEY_PATTERN
 from jupyterlab_git_core.git import (
     DEFAULT_REMOTE_NAME,
     Git,
@@ -96,6 +97,15 @@ class GitHandler(APIHandler):
             self.set_status(500)
             self.finish(json.dumps({"code": 500, "message": str(e)}))
 
+    def set_remote_error_status(self, response: dict) -> None:
+        """
+        Set the status of a failed command that reaches a remote.
+
+        A locked SSH key is a 401 so that the server logs a warning, not an error.
+        """
+        locked = LOCKED_KEY_PATTERN.search(response.get("message") or "")
+        self.set_status(401 if locked else 500)
+
     async def prepare(self):
         """Check if the path should be skipped"""
         await ensure_async(super().prepare())
@@ -156,7 +166,7 @@ class GitCloneHandler(GitHandler):
         )
 
         if response["code"] != 0:
-            self.set_status(500)
+            self.set_remote_error_status(response)
         self.finish(json.dumps(response))
 
 
@@ -216,7 +226,7 @@ class GitFetchHandler(GitHandler):
         )
 
         if result["code"] != 0:
-            self.set_status(500)
+            self.set_remote_error_status(result)
         self.finish(json.dumps(result))
 
 
@@ -664,7 +674,7 @@ class GitPullHandler(GitHandler):
         )
 
         if response["code"] != 0:
-            self.set_status(500)
+            self.set_remote_error_status(response)
 
         self.finish(json.dumps(response))
 
@@ -699,7 +709,7 @@ class GitPushHandler(GitHandler):
         )
 
         if response["code"] != 0:
-            self.set_status(500)
+            self.set_remote_error_status(response)
         self.finish(json.dumps(response))
 
 
@@ -1119,6 +1129,36 @@ class SshHostHandler(SSHHandler):
         self.ssh.add_host(hostname)
 
 
+class SshAgentHandler(SSHHandler):
+    """
+    Handler for adding a passphrase-protected key to the SSH agent
+    """
+
+    @authorized
+    @tornado.web.authenticated
+    async def post(self):
+        """
+        POST request handler, unlock a key by adding it to the SSH agent.
+
+        Request body:
+        {
+            key: string # Path of the private key
+            passphrase: string # Passphrase of the key
+        }
+        """
+        data = self.get_json_body()
+        key = os.path.abspath(os.path.expanduser(data["key"]))
+        if not os.path.isfile(key):
+            self.set_status(400)
+            self.finish(json.dumps({"code": 1, "message": f"No SSH key at {key}"}))
+            return
+
+        response = await self.ssh.add_key(key, data["passphrase"])
+        if response["code"] != 0:
+            self.set_status(400 if response.get("bad_passphrase") else 500)
+        self.finish(json.dumps(response))
+
+
 def setup_handlers(web_app):
     """
     Setups all of the git command handlers.
@@ -1171,6 +1211,7 @@ def setup_handlers(web_app):
         ("/diffnotebook", GitDiffNotebookHandler),
         ("/settings", GitSettingsHandler),
         ("/known_hosts", SshHostHandler),
+        ("/ssh_agent", SshAgentHandler),
     ]
 
     # add the baseurl to our paths

@@ -4,7 +4,13 @@ import { FileBrowserModel } from '@jupyterlab/filebrowser';
 import { nullTranslator } from '@jupyterlab/translation';
 import { CommandRegistry } from '@lumino/commands';
 import 'jest';
-import { CommandArguments, addCommands } from '../commandsAndMenu';
+import { CancelledError } from '../cancelledError';
+import {
+  CommandArguments,
+  Operation,
+  addCommands,
+  showGitOperationDialog
+} from '../commandsAndMenu';
 import * as git from '../git';
 import { GitExtension } from '../model';
 import { ContextCommandIDs, CommandIDs, Git } from '../tokens';
@@ -263,6 +269,104 @@ describe('git-commands', () => {
           spyCloseAll.mockRestore();
         }
       );
+    });
+  });
+
+  describe('showGitOperationDialog', () => {
+    const key = '/home/me/.ssh/id_ed25519';
+    const lockedKeyError = () =>
+      new Git.GitResponseError(
+        new Response(null, { status: 500 }),
+        `SSH key '${key}' is locked: a passphrase is required.`
+      );
+    const dialogResult = (accept: boolean, value: string) =>
+      ({
+        button: { accept } as any,
+        isChecked: null,
+        value
+      }) as any;
+
+    beforeEach(() => {
+      (showDialog as jest.MockedFunction<typeof showDialog>).mockReset();
+      // The automock of '../git' does not keep the regular expression.
+      Object.defineProperty(mockGit, 'SSH_KEY_LOCKED_REGEX', {
+        value: jest.requireActual('../git').SSH_KEY_LOCKED_REGEX
+      });
+    });
+
+    it('should unlock a locked SSH key and retry the operation', async () => {
+      const mockDialog = showDialog as jest.MockedFunction<typeof showDialog>;
+      mockDialog.mockResolvedValueOnce(dialogResult(true, 'open sesame'));
+      const fetch = jest
+        .spyOn(model, 'fetch')
+        .mockRejectedValueOnce(lockedKeyError())
+        .mockResolvedValueOnce({ code: 0, message: 'fetched' });
+      const addKey = jest
+        .spyOn(model, 'addSSHKeyToAgent')
+        .mockResolvedValueOnce();
+      model.credentialsRequired = true;
+
+      const message = await showGitOperationDialog(
+        model,
+        Operation.Fetch,
+        nullTranslator.load('jupyterlab_git')
+      );
+
+      expect(message).toEqual('fetched');
+      expect(addKey).toHaveBeenCalledWith(key, 'open sesame');
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(model.credentialsRequired).toBe(false);
+    });
+
+    it('should ask again when the passphrase is incorrect', async () => {
+      const mockDialog = showDialog as jest.MockedFunction<typeof showDialog>;
+      mockDialog
+        .mockResolvedValueOnce(dialogResult(true, 'wrong'))
+        .mockResolvedValueOnce(dialogResult(true, 'open sesame'));
+      jest
+        .spyOn(model, 'pull')
+        .mockRejectedValueOnce(lockedKeyError())
+        .mockResolvedValueOnce({ code: 0, message: '' });
+      const addKey = jest
+        .spyOn(model, 'addSSHKeyToAgent')
+        .mockRejectedValueOnce(
+          new Git.GitResponseError(
+            new Response(null, { status: 400 }),
+            'Incorrect passphrase for the SSH key.',
+            '',
+            { bad_passphrase: true }
+          )
+        )
+        .mockResolvedValueOnce();
+
+      await showGitOperationDialog(
+        model,
+        Operation.Pull,
+        nullTranslator.load('jupyterlab_git')
+      );
+
+      expect(mockDialog).toHaveBeenCalledTimes(2);
+      expect(addKey).toHaveBeenLastCalledWith(key, 'open sesame');
+    });
+
+    it('should not retry when the unlock dialog is cancelled', async () => {
+      const mockDialog = showDialog as jest.MockedFunction<typeof showDialog>;
+      mockDialog.mockResolvedValueOnce(dialogResult(false, ''));
+      const push = jest
+        .spyOn(model, 'push')
+        .mockRejectedValueOnce(lockedKeyError());
+      const addKey = jest.spyOn(model, 'addSSHKeyToAgent');
+
+      await expect(
+        showGitOperationDialog(
+          model,
+          Operation.Push,
+          nullTranslator.load('jupyterlab_git'),
+          { remote: 'origin' }
+        )
+      ).rejects.toThrow(CancelledError);
+      expect(push).toHaveBeenCalledTimes(1);
+      expect(addKey).not.toHaveBeenCalled();
     });
   });
 });

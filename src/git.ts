@@ -14,6 +14,12 @@ export const AUTH_ERROR_MESSAGES = [
 ];
 
 /**
+ * Server error for a passphrase-protected SSH key missing from the SSH agent;
+ * the first group is the path of the key.
+ */
+export const SSH_KEY_LOCKED_REGEX = /SSH key '(.+)' is locked/;
+
+/**
  * Call the API extension
  *
  * @param endPoint API REST end point for the extension; default ''

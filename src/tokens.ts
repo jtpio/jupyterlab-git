@@ -690,6 +690,17 @@ export interface IGitExtension extends IDisposable {
   addHostToKnownList(hostname: string): Promise<void>;
 
   /**
+   * Unlock a passphrase-protected SSH key by adding it to the SSH agent
+   *
+   * @param key - path of the private key
+   * @param passphrase - passphrase of the key
+   *
+   * @throws {Git.GitResponseError} If the server response is not ok
+   * @throws {ServerConnection.NetworkError} If the request cannot be made
+   */
+  addSSHKeyToAgent(key: string, passphrase: string): Promise<void>;
+
+  /**
    * Get the prefix path of a directory 'path',
    * with respect to the root directory of repository
    *

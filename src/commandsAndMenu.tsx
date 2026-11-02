@@ -35,7 +35,7 @@ import * as React from 'react';
 import { CancelledError } from './cancelledError';
 import { PreviewMainAreaWidget } from './components/diff/PreviewMainAreaWidget';
 import { DiffModel } from './components/diff/model';
-import { AUTH_ERROR_MESSAGES, requestAPI } from './git';
+import { AUTH_ERROR_MESSAGES, SSH_KEY_LOCKED_REGEX, requestAPI } from './git';
 import { GitExtension, getDiffProvider } from './model';
 import { showDetails, showError } from './notifications';
 import {
@@ -58,6 +58,7 @@ import {
 import { AdvancedPushForm } from './widgets/AdvancedPushForm';
 import { GitCredentialsForm } from './widgets/CredentialsBox';
 import { CheckboxForm } from './widgets/GitResetToRemoteForm';
+import { SSHKeyPassphraseForm } from './widgets/SSHKeyPassphraseForm';
 import { discardAllChanges } from './widgets/discardAllChanges';
 
 export interface IGitCloneArgs {
@@ -2091,6 +2092,45 @@ export function addFileBrowserContextMenu(
 }
 
 /**
+ * Ask for the passphrase of a locked SSH key and add the key to the SSH agent.
+ *
+ * @throws {CancelledError} If the user cancels the dialog
+ */
+async function unlockSSHKey(
+  model: IGitExtension,
+  key: string,
+  trans: TranslationBundle
+): Promise<void> {
+  let warning = '';
+  for (;;) {
+    const result = await showDialog({
+      title: trans.__('Unlock SSH key'),
+      body: new SSHKeyPassphraseForm(trans, key, warning),
+      buttons: [
+        Dialog.cancelButton({ label: trans.__('Cancel') }),
+        Dialog.okButton({ label: trans.__('Unlock') })
+      ],
+      focusNodeSelector: 'input'
+    });
+    if (!result.button.accept) {
+      throw new CancelledError();
+    }
+    try {
+      await model.addSSHKeyToAgent(key, result.value ?? '');
+      // The background fetch can run again.
+      model.credentialsRequired = false;
+      return;
+    } catch (error) {
+      if ((error as Git.GitResponseError).json?.bad_passphrase) {
+        warning = trans.__('Incorrect passphrase.');
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+/**
  * Handle Git operation that may require authentication.
  *
  * @private
@@ -2183,6 +2223,20 @@ export async function showGitOperationDialog<T>(
     }
     return result.message;
   } catch (error) {
+    const lockedKey = (error as Error).message?.match(
+      SSH_KEY_LOCKED_REGEX
+    )?.[1];
+    if (lockedKey) {
+      await unlockSSHKey(model, lockedKey, trans);
+      return await showGitOperationDialog<T>(
+        model,
+        operation,
+        trans,
+        args,
+        authentication,
+        retry
+      );
+    }
     if (
       AUTH_ERROR_MESSAGES.some(
         errorMessage => (error as Error).message.indexOf(errorMessage) > -1
