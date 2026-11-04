@@ -5,11 +5,13 @@ import signal
 import subprocess
 import sys
 
+import anyio
 import pytest
 
 from jupyterlab_git_core.askpass import (
     BAD_PASSPHRASE_MESSAGE,
     PASSPHRASE_ENV,
+    UNKNOWN_KEY_MESSAGE,
     askpass_env,
     main,
 )
@@ -72,6 +74,13 @@ def test_main_refuses_other_prompts(prompt, capsys, monkeypatch):
     assert capsys.readouterr() == ("", "")
 
 
+def test_main_reports_prompt_without_key(capsys, monkeypatch):
+    monkeypatch.delenv(PASSPHRASE_ENV, raising=False)
+
+    assert main("Enter passphrase: ") == 1
+    assert UNKNOWN_KEY_MESSAGE in capsys.readouterr().err
+
+
 def test_main_accepts_notifications(monkeypatch):
     monkeypatch.setenv("SSH_ASKPASS_PROMPT", "none")
 
@@ -102,6 +111,22 @@ def test_askpass_script_is_recreated():
 
 
 @posix_only
+def test_askpass_script_is_not_reused_when_not_private():
+    script = askpass_env()["SSH_ASKPASS"]
+    # Simulate another user who creates the same path after a cleanup of /tmp.
+    shutil.rmtree(os.path.dirname(script))
+    os.mkdir(os.path.dirname(script), 0o755)
+    with open(script, "w") as f:
+        f.write("#!/bin/sh\necho stolen\n")
+    os.chmod(script, 0o755)
+
+    new_script = askpass_env()["SSH_ASKPASS"]
+
+    assert new_script != script
+    shutil.rmtree(os.path.dirname(script))
+
+
+@posix_only
 @pytest.mark.asyncio
 async def test_execute_has_no_terminal_and_uses_askpass(tmp_path):
     code, output, _ = await execute(
@@ -115,6 +140,51 @@ async def test_execute_has_no_terminal_and_uses_askpass(tmp_path):
 
     assert code == 0
     assert output.strip() == "True force"
+
+
+@posix_only
+@pytest.mark.asyncio
+async def test_execute_keeps_the_askpass_of_the_caller(tmp_path):
+    code, output, _ = await execute(
+        ["sh", "-c", 'echo "$SSH_ASKPASS $SSH_ASKPASS_REQUIRE"'],
+        cwd=str(tmp_path),
+        env={**os.environ, "SSH_ASKPASS": "/usr/bin/my-askpass"},
+    )
+
+    assert code == 0
+    assert output.strip() == "/usr/bin/my-askpass force"
+
+
+@pytest.fixture
+def locked_key_ssh(tmp_path):
+    """
+    Fake ssh that asks for the passphrase of a locked key, like OpenSSH does.
+    """
+    ssh = tmp_path / "fake-ssh"
+    ssh.write_text(
+        "#!/bin/sh\n"
+        '"$SSH_ASKPASS" "Enter passphrase for key \'/home/me/.ssh/id_ed25519\': "\n'
+        "echo 'git@example.com: Permission denied (publickey).' >&2\n"
+        "exit 255\n"
+    )
+    ssh.chmod(0o755)
+    return {**os.environ, "GIT_SSH_COMMAND": str(ssh), "GIT_TERMINAL_PROMPT": "0"}
+
+
+@posix_only
+@pytest.mark.asyncio
+@pytest.mark.parametrize("auth", [{}, {"username": "me", "password": "secret"}])
+async def test_execute_reports_locked_key(auth, locked_key_ssh, tmp_path):
+    with anyio.fail_after(30):
+        code, _, error = await execute(
+            ["git", "ls-remote", "git@example.com:repo.git"],
+            cwd=str(tmp_path),
+            env=locked_key_ssh,
+            **auth,
+        )
+
+    assert code != 0
+    assert "SSH key '/home/me/.ssh/id_ed25519' is locked" in error
 
 
 @pytest.fixture

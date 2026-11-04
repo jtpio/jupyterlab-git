@@ -10,6 +10,7 @@ import os
 import re
 import shlex
 import shutil
+import stat
 import sys
 import tempfile
 from typing import Dict, Optional
@@ -18,12 +19,56 @@ PASSPHRASE_ENV = "JUPYTERLAB_GIT_SSH_PASSPHRASE"
 LOCKED_KEY_MESSAGE = "SSH key '{key}' is locked: a passphrase is required."
 LOCKED_KEY_PATTERN = re.compile(r"SSH key '(?P<key>.+)' is locked")
 BAD_PASSPHRASE_MESSAGE = "Incorrect passphrase for the SSH key."
+UNKNOWN_KEY_MESSAGE = (
+    "An SSH key needs its passphrase: add the key to the SSH agent with ssh-add."
+)
 # ssh asks "Enter passphrase for key '<path>': ", ssh-add asks "Enter passphrase for <path>: "
 KEY_PROMPT = re.compile(
     r"^Enter passphrase for (?:key '(?P<quoted>.+)'|(?P<path>.+?)(?: \(will confirm each use\))?):\s*$"
 )
 
 _script: Optional[str] = None
+
+
+def _is_private(script: str) -> bool:
+    """
+    Whether the script and its directory are still owned by the user and private.
+
+    After a cleanup of the temporary directory, another user could create the same path.
+    """
+    for path, is_type in (
+        (os.path.dirname(script), stat.S_ISDIR),
+        (script, stat.S_ISREG),
+    ):
+        try:
+            info = os.lstat(path)
+        except OSError:
+            return False
+        if (
+            not is_type(info.st_mode)
+            or info.st_uid != os.getuid()
+            or info.st_mode & 0o077
+        ):
+            return False
+    return True
+
+
+def _create_script() -> str:
+    """
+    Write the shell script that runs this module with the server's Python.
+    """
+    directory = tempfile.mkdtemp(prefix="jupyterlab-git-")
+    atexit.register(shutil.rmtree, directory, ignore_errors=True)
+    script = os.path.join(directory, "askpass")
+    with open(script, "w") as f:
+        f.write(
+            '#!/bin/sh\nexec {} -I {} "$@"\n'.format(
+                shlex.quote(sys.executable),
+                shlex.quote(os.path.abspath(__file__)),
+            )
+        )
+    os.chmod(script, 0o700)
+    return script
 
 
 def askpass_env(passphrase: Optional[str] = None) -> Dict[str, str]:
@@ -36,20 +81,15 @@ def askpass_env(passphrase: Optional[str] = None) -> Dict[str, str]:
     if os.name == "nt":
         return {}
     # The temporary directory can be cleaned up while the server is running.
-    if _script is None or not os.path.exists(_script):
-        directory = tempfile.mkdtemp(prefix="jupyterlab-git-")
-        atexit.register(shutil.rmtree, directory, ignore_errors=True)
-        script = os.path.join(directory, "askpass")
-        with open(script, "w") as f:
-            f.write(
-                '#!/bin/sh\nexec {} -I {} "$@"\n'.format(
-                    shlex.quote(sys.executable),
-                    shlex.quote(os.path.abspath(__file__)),
-                )
-            )
-        os.chmod(script, 0o700)
-        # Git commands run in worker threads: only share the script once it is complete.
-        _script = script
+    if _script is None or not _is_private(_script):
+        try:
+            # Git commands run in worker threads: only share the script once it is complete.
+            _script = _create_script()
+        except OSError as e:
+            from .log import get_logger
+
+            get_logger().warning(f"Failed to create the SSH askpass helper: {e}")
+            return {}
 
     env = {"SSH_ASKPASS": _script, "SSH_ASKPASS_REQUIRE": "force"}
     if passphrase is not None:
@@ -68,6 +108,10 @@ def main(prompt: str) -> int:
         print(BAD_PASSPHRASE_MESSAGE, file=sys.stderr)
         return 1
     match = KEY_PROMPT.match(prompt)
+    # For example "ssh-keygen -Y sign" for commits signed with SSH: the prompt has no key path.
+    if match is None and prompt.startswith("Enter passphrase"):
+        print(UNKNOWN_KEY_MESSAGE, file=sys.stderr)
+        return 1
     # Host key confirmations and git credential prompts are refused.
     if match is None:
         return 1

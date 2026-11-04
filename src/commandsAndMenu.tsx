@@ -2144,6 +2144,7 @@ async function unlockSSHKey(
  * @param args - Git operation arguments
  * @param authentication - Git authentication information
  * @param retry - Is this operation retried?
+ * @param unlockedKeys - SSH keys already unlocked for this operation
  * @returns Promise for displaying a dialog
  */
 export async function showGitOperationDialog<T>(
@@ -2152,7 +2153,8 @@ export async function showGitOperationDialog<T>(
   trans: TranslationBundle,
   args?: T,
   authentication?: Git.IAuth,
-  retry = false
+  retry = false,
+  unlockedKeys = new Set<string>()
 ): Promise<string> {
   /**
    * Returns the current remote's URL based on the current remote name and all the remotes
@@ -2231,14 +2233,25 @@ export async function showGitOperationDialog<T>(
       SSH_KEY_LOCKED_REGEX
     )?.[1];
     if (lockedKey) {
+      // The agent has the key but ssh does not use it: asking again would not help.
+      if (unlockedKeys.has(lockedKey)) {
+        throw new Error(
+          trans.__(
+            'The SSH key %1 is in the SSH agent, but ssh still asks for its passphrase. Check the SSH configuration, for example IdentityAgent or IdentitiesOnly.',
+            lockedKey
+          )
+        );
+      }
       await unlockSSHKey(model, lockedKey, trans);
+      unlockedKeys.add(lockedKey);
       return await showGitOperationDialog<T>(
         model,
         operation,
         trans,
         args,
         authentication,
-        retry
+        retry,
+        unlockedKeys
       );
     }
     if (
@@ -2309,7 +2322,8 @@ export async function showGitOperationDialog<T>(
           trans,
           args,
           credentials.value ?? undefined,
-          true
+          true,
+          unlockedKeys
         );
       } else {
         throw new CancelledError();

@@ -1,11 +1,13 @@
-import { ReactWidget, UseSignal } from '@jupyterlab/apputils';
+import { Notification, ReactWidget, UseSignal } from '@jupyterlab/apputils';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { IStatusBar } from '@jupyterlab/statusbar';
 import { TranslationBundle } from '@jupyterlab/translation';
 import Badge from '@mui/material/Badge';
 import React from 'react';
 import { classes } from 'typestyle';
+import { CancelledError } from '../cancelledError';
 import { Operation, showGitOperationDialog } from '../commandsAndMenu';
+import { showError } from '../notifications';
 import { gitIcon } from '../style/icons';
 import {
   badgeClass,
@@ -98,6 +100,12 @@ export class StatusWidget extends ReactWidget {
       await showGitOperationDialog(this._model, Operation.Fetch, this._trans);
     } catch (error) {
       console.error('Encountered an error when fetching. Error:', error);
+      if (!(error instanceof CancelledError)) {
+        Notification.error(
+          this._trans.__('Failed to fetch'),
+          showError(error as Error, this._trans)
+        );
+      }
     }
   }
 

@@ -373,6 +373,54 @@ describe('git-commands', () => {
       expect(addKey).toHaveBeenCalledWith(key, 'open sesame');
     });
 
+    it('should stop when the key is still locked after the unlock', async () => {
+      const mockDialog = showDialog as jest.MockedFunction<typeof showDialog>;
+      mockDialog.mockResolvedValueOnce(dialogResult(true, 'open sesame'));
+      const fetch = jest
+        .spyOn(model, 'fetch')
+        .mockRejectedValueOnce(lockedKeyError())
+        .mockRejectedValueOnce(lockedKeyError());
+      jest.spyOn(model, 'addSSHKeyToAgent').mockResolvedValueOnce();
+
+      await expect(
+        showGitOperationDialog(
+          model,
+          Operation.Fetch,
+          nullTranslator.load('jupyterlab_git')
+        )
+      ).rejects.toThrow('ssh still asks for its passphrase');
+      expect(mockDialog).toHaveBeenCalledTimes(1);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should not retry when the unlock fails for another reason', async () => {
+      const mockDialog = showDialog as jest.MockedFunction<typeof showDialog>;
+      mockDialog.mockResolvedValueOnce(dialogResult(true, 'open sesame'));
+      const fetch = jest
+        .spyOn(model, 'fetch')
+        .mockRejectedValueOnce(lockedKeyError());
+      jest
+        .spyOn(model, 'addSSHKeyToAgent')
+        .mockRejectedValueOnce(
+          new Git.GitResponseError(
+            new Response(null, { status: 500 }),
+            'Could not open a connection to your authentication agent.',
+            '',
+            { bad_passphrase: false }
+          )
+        );
+
+      await expect(
+        showGitOperationDialog(
+          model,
+          Operation.Fetch,
+          nullTranslator.load('jupyterlab_git')
+        )
+      ).rejects.toThrow('authentication agent');
+      expect(mockDialog).toHaveBeenCalledTimes(1);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
     it('should not retry when the unlock dialog is cancelled', async () => {
       const mockDialog = showDialog as jest.MockedFunction<typeof showDialog>;
       mockDialog.mockResolvedValueOnce(dialogResult(false, ''));

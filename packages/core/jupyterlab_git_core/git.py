@@ -194,7 +194,7 @@ async def execute(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             cwd=cwd,
-            env={**(os.environ if env is None else env), **askpass_env()},
+            env=env,
             # Without a controlling terminal, ssh cannot prompt on the terminal running
             # Jupyter and block the execution lock while waiting for an answer.
             start_new_session=True,
@@ -220,6 +220,8 @@ async def execute(
         # If the lock still exists at this point, we will likely fail anyway, but let's try anyway
 
         get_logger().debug("Execute {!s} in {!s}.".format(cmdline, cwd))
+        # The askpass settings of the caller or the user win over the helper.
+        env = {**askpass_env(), **(os.environ if env is None else env)}
         if username is not None and password is not None:
             code, output, error = await call_subprocess_with_authentication(
                 cmdline,
