@@ -88,7 +88,8 @@ pip uninstall jupyterlab-git-core fps-jupyterlab-git
 
 If you are seeing errors similar to `[E yyyy-mm-dd hh:mm:ss ServerApp] 500 POST /git/<clone|push|pull|status>` on the console which is running the JupyterLab server, you probably need to set up a credentials store for your local Git repository.
 
-This extension tries to handle credentials for HTTP(S) connections (if you don't have set up a credential manager). But not for other SSH connections.
+This extension tries to handle credentials for HTTP(S) connections (if you don't have set up a credential manager).
+For SSH connections, it can unlock a key protected by a passphrase (see [SSH protocol](#ssh-protocol)).
 
 > For Windows users, it is recommended to install [git for windows](https://gitforwindows.org/). It will automatically set up a credential manager.
 > In order to connect to a remote host, it is recommended to use SSH.
@@ -114,6 +115,10 @@ Here are the steps to follow to set up SSH authentication (skip any that is alre
 4. Tell your local Git repository to [connect to remote via ssh](https://docs.github.com/en/get-started/getting-started-with-git/managing-remote-repositories#switching-remote-urls-from-https-to-ssh)
 
 You should now be able to pull and push committed changes to and from your remote repository using the respective buttons on the top of the extension's panel.
+
+If your SSH key has a passphrase and is not in the SSH agent, the extension never asks for the passphrase in the terminal that runs JupyterLab.
+Local operations continue to work. When you pull, push, fetch or clone, a dialog asks for the passphrase and adds the key to the SSH agent with `ssh-add`.
+This requires a running SSH agent (`SSH_AUTH_SOCK` set for the JupyterLab server) and OpenSSH 8.4 or later. It is not available on Windows.
 
 ### UI Settings
 

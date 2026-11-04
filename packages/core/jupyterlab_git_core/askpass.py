@@ -39,15 +39,17 @@ def askpass_env(passphrase: Optional[str] = None) -> Dict[str, str]:
     if _script is None or not os.path.exists(_script):
         directory = tempfile.mkdtemp(prefix="jupyterlab-git-")
         atexit.register(shutil.rmtree, directory, ignore_errors=True)
-        _script = os.path.join(directory, "askpass")
-        with open(_script, "w") as f:
+        script = os.path.join(directory, "askpass")
+        with open(script, "w") as f:
             f.write(
                 '#!/bin/sh\nexec {} -I {} "$@"\n'.format(
                     shlex.quote(sys.executable),
                     shlex.quote(os.path.abspath(__file__)),
                 )
             )
-        os.chmod(_script, 0o700)
+        os.chmod(script, 0o700)
+        # Git commands run in worker threads: only share the script once it is complete.
+        _script = script
 
     env = {"SSH_ASKPASS": _script, "SSH_ASKPASS_REQUIRE": "force"}
     if passphrase is not None:

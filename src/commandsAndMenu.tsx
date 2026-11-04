@@ -2115,8 +2115,12 @@ async function unlockSSHKey(
     if (!result.button.accept) {
       throw new CancelledError();
     }
+    if (!result.value) {
+      warning = trans.__('Enter the passphrase of the key.');
+      continue;
+    }
     try {
-      await model.addSSHKeyToAgent(key, result.value ?? '');
+      await model.addSSHKeyToAgent(key, result.value);
       // The background fetch can run again.
       model.credentialsRequired = false;
       return;

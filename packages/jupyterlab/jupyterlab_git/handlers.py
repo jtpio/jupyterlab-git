@@ -1146,14 +1146,37 @@ class SshAgentHandler(SSHHandler):
             passphrase: string # Passphrase of the key
         }
         """
-        data = self.get_json_body()
-        key = os.path.abspath(os.path.expanduser(data["key"]))
+        data = self.get_json_body() or {}
+        key = data.get("key")
+        passphrase = data.get("passphrase")
+        if not isinstance(key, str) or not isinstance(passphrase, str):
+            self.set_status(400)
+            self.finish(
+                json.dumps(
+                    {"code": 1, "message": "A key and a passphrase are required."}
+                )
+            )
+            return
+        # ssh-add treats an empty passphrase as a cancel and fails without a message.
+        if not passphrase:
+            self.set_status(400)
+            self.finish(
+                json.dumps(
+                    {
+                        "code": 1,
+                        "message": "The passphrase is empty.",
+                        "bad_passphrase": True,
+                    }
+                )
+            )
+            return
+        key = os.path.abspath(os.path.expanduser(key))
         if not os.path.isfile(key):
             self.set_status(400)
             self.finish(json.dumps({"code": 1, "message": f"No SSH key at {key}"}))
             return
 
-        response = await self.ssh.add_key(key, data["passphrase"])
+        response = await self.ssh.add_key(key, passphrase)
         if response["code"] != 0:
             self.set_status(400 if response.get("bad_passphrase") else 500)
         self.finish(json.dumps(response))

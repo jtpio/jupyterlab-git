@@ -349,6 +349,30 @@ describe('git-commands', () => {
       expect(addKey).toHaveBeenLastCalledWith(key, 'open sesame');
     });
 
+    it('should ask again when the passphrase is empty', async () => {
+      const mockDialog = showDialog as jest.MockedFunction<typeof showDialog>;
+      mockDialog
+        .mockResolvedValueOnce(dialogResult(true, ''))
+        .mockResolvedValueOnce(dialogResult(true, 'open sesame'));
+      jest
+        .spyOn(model, 'fetch')
+        .mockRejectedValueOnce(lockedKeyError())
+        .mockResolvedValueOnce({ code: 0, message: '' });
+      const addKey = jest
+        .spyOn(model, 'addSSHKeyToAgent')
+        .mockResolvedValueOnce();
+
+      await showGitOperationDialog(
+        model,
+        Operation.Fetch,
+        nullTranslator.load('jupyterlab_git')
+      );
+
+      expect(mockDialog).toHaveBeenCalledTimes(2);
+      expect(addKey).toHaveBeenCalledTimes(1);
+      expect(addKey).toHaveBeenCalledWith(key, 'open sesame');
+    });
+
     it('should not retry when the unlock dialog is cancelled', async () => {
       const mockDialog = showDialog as jest.MockedFunction<typeof showDialog>;
       mockDialog.mockResolvedValueOnce(dialogResult(false, ''));

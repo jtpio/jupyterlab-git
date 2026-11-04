@@ -1083,3 +1083,23 @@ async def test_fetch_handler_error_status(mock_git, message, status, jp_fetch):
         )
 
     assert_http_error(e, status, message.splitlines()[0])
+
+
+@pytest.mark.parametrize(
+    "body, message, bad_passphrase",
+    [
+        ({"key": "id_ed25519"}, "A key and a passphrase are required.", None),
+        ({"passphrase": "x"}, "A key and a passphrase are required.", None),
+        ({"key": "id_ed25519", "passphrase": ""}, "The passphrase is empty.", True),
+    ],
+)
+@patch("jupyterlab_git.handlers.SSH.add_key")
+async def test_ssh_agent_handler_invalid_body(
+    mock_add_key, body, message, bad_passphrase, jp_fetch
+):
+    with pytest.raises(HTTPClientError) as e:
+        await jp_fetch(NAMESPACE, "ssh_agent", body=json.dumps(body), method="POST")
+
+    assert_http_error(e, 400, message)
+    assert json.loads(e.value.response.body).get("bad_passphrase") == bad_passphrase
+    mock_add_key.assert_not_called()

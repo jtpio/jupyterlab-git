@@ -224,6 +224,9 @@ namespace Private {
         case 'git:pull':
           message = trans.__('pulling changes…');
           break;
+        case 'git:ssh:unlock':
+          message = trans.__('unlocking SSH key…');
+          break;
         case 'git:pushing':
           message = trans.__('pushing changes…');
           break;
